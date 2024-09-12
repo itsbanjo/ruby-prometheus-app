@@ -1,5 +1,7 @@
 # Ruby Prometheus Metrics with Elastic Stack, APM, and Redis Sampling
 
+![Project Architecture Diagram](artefacts/image.png)
+
 This project demonstrates a Ruby application that exposes Prometheus metrics, integrates with Elastic APM for application performance monitoring, uses Redis for tail-based sampling, and includes error simulation. It's designed to showcase a modern observability setup for a web application.
 
 ## Features
