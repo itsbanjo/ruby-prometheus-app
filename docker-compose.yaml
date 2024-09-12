@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  ruby_app:
+    build: .
+    ports:
+      - "4567:4567"
+    networks:
+      - app_network
+
+  elastic-agent:
+    image: docker.elastic.co/beats/elastic-agent:8.14.0
+    environment:
+      - FLEET_ENROLL=1
+      - FLEET_INSECURE=false
+      - FLEET_URL=changeme
+      - FLEET_ENROLLMENT_TOKEN=changeme
+    networks:
+      - app_network
+    depends_on:
+      - ruby_app
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    networks:
+      - app_network
+    depends_on:
+      - ruby_app
+
+networks:
+  app_network:
+    driver: bridge
