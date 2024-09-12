@@ -1,32 +1,36 @@
-# Ruby Prometheus Metrics with Elastic Stack
+# Ruby Prometheus Metrics with Elastic Stack, APM, and Redis Sampling
 
-This project demonstrates how to set up a Ruby application that exposes Prometheus metrics, scrape those metrics using Prometheus, and send them to Elastic Cloud using Elastic Agent.
+This project demonstrates a Ruby application that exposes Prometheus metrics, integrates with Elastic APM for application performance monitoring, uses Redis for tail-based sampling, and includes error simulation. It's designed to showcase a modern observability setup for a web application.
+
+## Features
+
+- Ruby Sinatra application simulating an online store
+- Prometheus metrics exposure
+- Elastic APM integration for performance monitoring
+- Redis-based tail sampling for efficient APM data collection
+- Error simulation endpoint for testing error tracking
+- Docker Compose setup for easy deployment
 
 ## Prerequisites
 
 - Docker and Docker Compose
-- An Elastic Cloud account
-- Access to Kibana and Fleet
+- An Elastic Cloud account (or a self-hosted Elastic Stack)
+- Basic knowledge of Ruby, Docker, and Elastic Stack
 
 ## Setup
 
-1. Clone this repository:
+1. Clone the repository:
    ```
-   git clone https://github.com/itsbanjo/ruby-prometheus-app.git
-   cd ruby-prometheus-app
+   git clone [your-repository-url]
+   cd [your-project-directory]
    ```
 
-2. Update the `docker-compose.yml` file with your Elastic Fleet information:
-   - Replace `FLEET_URL` with your actual Fleet URL
-   - Replace `FLEET_ENROLLMENT_TOKEN` with your actual Fleet enrollment token
-
-   ```yaml
-   elastic-agent:
-     environment:
-       - FLEET_ENROLL=1
-       - FLEET_INSECURE=false
-       - FLEET_URL=https://your-fleet-url.cloud.es.io:443
-       - FLEET_ENROLLMENT_TOKEN=YourActualEnrollmentTokenHere
+2. Create a `.env` file in the project root and add your Elastic Cloud credentials:
+   ```
+   ELASTIC_APM_SERVER_URL=https://your-apm-server-url:443
+   ELASTIC_APM_SECRET_TOKEN=your_apm_secret_token
+   FLEET_URL=https://your-fleet-url.cloud.es.io:443
+   FLEET_ENROLLMENT_TOKEN=YourActualEnrollmentTokenHere
    ```
 
 3. Build and start the Docker containers:
@@ -36,23 +40,30 @@ This project demonstrates how to set up a Ruby application that exposes Promethe
 
 ## Components
 
-### Ruby Application
+### Ruby Application (app.rb)
 
-- Located in `app.rb`
-- Exposes a `/metrics` endpoint for Prometheus
-- Simulates sales with the `/make_sale` endpoint
+- Simulates an online store with a `/make_sale` endpoint
+- Exposes Prometheus metrics at `/metrics`
+- Integrates with Elastic APM for performance monitoring
+- Uses Redis for tail-based sampling of APM transactions
+- Includes a `/test_error` endpoint to simulate application errors
 
 ### Prometheus
 
 - Scrapes metrics from the Ruby application
-- Configuration in `prometheus.yml`
+- Configured in `prometheus.yml`
 - Accessible at `http://localhost:9090`
 
-### Elastic Agent
+### Elastic APM
 
-- Managed by Fleet
-- Collects metrics from the Ruby application
+- Monitors application performance
 - Sends data to Elastic Cloud
+- Custom instrumentation for Redis operations
+
+### Redis
+
+- Used for tail-based sampling of APM transactions
+- Stores transaction metadata for sampling decisions
 
 ## Elastic Cloud Setup
 
@@ -95,55 +106,67 @@ This project demonstrates how to set up a Ruby application that exposes Promethe
 2. You should see your agent appear after starting the Docker containers
 3. Click on the agent to view its details and ensure it's properly connected
 
-## Verifying the Setup
+## Usage
 
-1. Generate some metrics:
+1. Access the application:
+   - Homepage: `http://localhost:4567`
+   - Simulate a sale: `http://localhost:4567/make_sale`
+   - View Prometheus metrics: `http://localhost:4567/metrics`
+   - Simulate an error: `http://localhost:4567/test_error`
+
+2. Generate some traffic:
    ```
-   curl http://localhost:4567/make_sale
+   for i in {1..100}; do curl http://localhost:4567/make_sale; done
    ```
 
-2. Check Prometheus:
-   - Open `http://localhost:9090`
-   - Query for `total_sales`
+3. Simulate errors:
+   ```
+   for i in {1..10}; do curl http://localhost:4567/test_error; done
+   ```
 
-3. Check Elastic Cloud:
-   - In Kibana, go to Metrics > Inventory
-   - Look for metrics from your Ruby application
+4. View metrics and traces:
+   - Prometheus UI: `http://localhost:9090`
+   - Elastic APM (in Kibana): Navigate to APM > Services
+     - Check the "Errors" tab to view simulated errors
 
-## Visualizing Data in Kibana
+## Tail-Based Sampling
 
-1. In Kibana, go to Analytics > Discover
-2. Create a new data view:
-   - Click "Create data view"
-   - Index pattern: `metrics-*`
-   - Timestamp field: `@timestamp`
-   - Name: "Ruby App Metrics"
-   - Click "Save data view to Kibana"
-3. You should now see your metric data
-4. To create a visualization:
-   - Go to Analytics > Dashboard
-   - Click "Create visualization"
-   - Choose "Line" (or another appropriate type)
-   - In the data panel:
-     - Select "Ruby App Metrics" as your data view
-     - Y-axis: Aggregation "Max" of field "prometheus.ruby_app.total_sales"
-     - X-axis: Aggregation "Date Histogram" of field "@timestamp"
-   - Click "Save and return"
-5. Add the visualization to a dashboard:
-   - Click "Add to dashboard"
-   - Create a new dashboard or add to an existing one
+This project implements tail-based sampling using Redis:
+
+- All transactions are initially captured by APM
+- Slow transactions (>200ms) are always sampled
+- Other transactions are randomly sampled at a 10% rate
+- Redis stores transaction metadata for sampling decisions
+
+To adjust sampling, modify the `SAMPLING_RATE` constant in `app.rb`.
+
+## Redis and APM
+
+While Redis is used for tail-based sampling in this project, it may not appear as a separate service in the APM UI. The Redis operations are instrumented within the Ruby application, but their visibility in APM depends on various factors:
+
+- The volume of Redis operations
+- APM agent configuration
+- Elastic Stack version
+
+To observe Redis-related data:
+
+1. In Kibana, go to APM > Services and select your Ruby application
+2. Look for Redis operations in the transaction traces
+3. Check the "Dependencies" section for any Redis-related information
+
+Note: If you don't see explicit Redis entries, the operations are still being traced within your Ruby application's transactions.
 
 ## Troubleshooting
 
 - Check Docker logs: `docker-compose logs`
-- Verify Elastic Agent enrollment: Check the Fleet UI in Kibana
+- Verify Elastic Agent enrollment in Kibana's Fleet UI
 - Ensure the Ruby app is exposing metrics: `curl http://localhost:4567/metrics`
-- Check Elastic Agent logs in Kibana: Fleet > Agents > [Your Agent] > Logs
+- Check Redis connection: `docker-compose exec redis redis-cli ping`
+- Verify error simulation: `curl http://localhost:4567/test_error` and check APM Errors tab
 
-## Contributing
+## Customization
 
-[Include information about how to contribute to the project]
-
-## License
-
-[Include your license information here]
+- Adjust the sampling rate in `app.rb`
+- Modify the `make_sale` function to simulate different transaction patterns
+- Add new endpoints or metrics to the Ruby application as needed
+- Customize the `/test_error` endpoint to simulate different types of errors
