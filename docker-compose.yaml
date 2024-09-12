@@ -5,20 +5,27 @@ services:
     build: .
     ports:
       - "4567:4567"
+    environment:
+      - ELASTIC_APM_SERVER_URL=${ELASTIC_APM_SERVER_URL}
+      - ELASTIC_APM_SECRET_TOKEN=${ELASTIC_APM_SECRET_TOKEN}
+      - REDIS_URL=redis://redis:6379
     networks:
       - app_network
+    depends_on:
+      - redis
 
   elastic-agent:
     image: docker.elastic.co/beats/elastic-agent:8.14.0
     environment:
       - FLEET_ENROLL=1
       - FLEET_INSECURE=false
-      - FLEET_URL=changeme
-      - FLEET_ENROLLMENT_TOKEN=changeme
+      - FLEET_URL=${FLEET_URL}
+      - FLEET_ENROLLMENT_TOKEN=${FLEET_ENROLLMENT_TOKEN}
     networks:
       - app_network
     depends_on:
       - ruby_app
+      - redis
 
   prometheus:
     image: prom/prometheus:latest
@@ -32,6 +39,27 @@ services:
       - app_network
     depends_on:
       - ruby_app
+
+  redis:
+    image: redis:6.2-alpine
+    command: redis-server --appendonly yes --slowlog-log-slower-than 10000 --latency-monitor-threshold 100
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app_network
+    labels:
+      co.elastic.logs/enabled: "true"
+      co.elastic.metrics/enabled: "true"
+      co.elastic.metrics/module: "redis"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  redis-data:
 
 networks:
   app_network:
