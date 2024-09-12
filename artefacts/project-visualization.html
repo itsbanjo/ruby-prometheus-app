@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruby Prometheus Metrics Project Structure</title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+    <style type="text/css">
+        #mynetwork {
+            width: 100%;
+            height: 600px;
+            border: 1px solid lightgray;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ruby Prometheus Metrics Project Structure</h1>
+    <div id="mynetwork"></div>
+
+    <script type="text/javascript">
+        // Create nodes
+        var nodes = new vis.DataSet([
+            { id: 1, label: 'Ruby App', color: '#FF6B6B', shape: 'box' },
+            { id: 2, label: 'Prometheus', color: '#4ECDC4', shape: 'circle', x: 100, y: 0 },
+            { id: 3, label: 'Elastic APM', color: '#45B7D1', shape: 'diamond' },
+            { id: 4, label: 'Redis', color: '#FF8C42', shape: 'triangle' },
+            { id: 5, label: 'Elastic Cloud', color: '#98D8C8', shape: 'hexagon', x: 300, y: 0 },
+            { id: 6, label: 'Fleet Agent', color: '#7209B7', shape: 'dot' }
+        ]);
+
+        // Create edges
+        var edges = new vis.DataSet([
+            { from: 1, to: 2, arrows: 'to', label: 'exposes metrics' },
+            { from: 1, to: 3, arrows: 'to', label: 'sends traces' },
+            { from: 1, to: 4, arrows: 'to,from', label: 'sampling' },
+            { from: 3, to: 5, arrows: 'to', label: 'sends data' },
+            { from: 6, to: 1, arrows: 'from', label: 'collects metrics' },
+            { from: 6, to: 5, arrows: 'to', label: 'sends data' }
+        ]);
+
+        // Create a network
+        var container = document.getElementById('mynetwork');
+        var data = {
+            nodes: nodes,
+            edges: edges
+        };
+        var options = {
+            nodes: {
+                font: { size: 16, face: 'Arial' },
+                scaling: { min: 20, max: 60 }
+            },
+            edges: {
+                font: { size: 12, align: 'middle' },
+                color: { inherit: 'both' },
+                width: 2
+            },
+            physics: {
+                forceAtlas2Based: {
+                    gravitationalConstant: -26,
+                    centralGravity: 0.005,
+                    springLength: 230,
+                    springConstant: 0.18
+                },
+                maxVelocity: 146,
+                solver: 'forceAtlas2Based',
+                timestep: 0.35,
+                stabilization: { iterations: 150 }
+            }
+        };
+        var network = new vis.Network(container, data, options);
+    </script>
+</body>
+</html>
