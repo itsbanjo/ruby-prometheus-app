@@ -79,7 +79,7 @@ spec:
         - "locust"
         - "-f"
         - "/locust/locustfile.py"
-        - "--host=http://localhost:4567"
+        - "--host=http://ruby-app-service"
         - "--headless"
         - "-u"
         - "1"
