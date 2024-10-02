@@ -15,6 +15,23 @@ data:
 
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: locust-script
+  namespace: ruby-prometheus-metrics
+data:
+  locustfile.py: |
+    from locust import HttpUser, task, between
+
+    class MyUser(HttpUser):
+        wait_time = between(2, 4)  # Wait between 2 to 4 seconds between tasks
+
+        @task
+        def make_sale(self):
+            self.client.get("/ruby-app/make_sale")
+
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: elastic-apm-secret
@@ -56,6 +73,25 @@ spec:
             name: ruby-app-config
         - secretRef:
             name: elastic-apm-secret
+      - name: locust
+        image: locustio/locust
+        command: 
+        - "locust"
+        - "-f"
+        - "/locust/locustfile.py"
+        - "--host=http://localhost:4567"
+        - "--headless"
+        - "-u"
+        - "1"
+        - "-r"
+        - "1"
+        volumeMounts:
+        - name: locust-script
+          mountPath: /locust
+      volumes:
+      - name: locust-script
+        configMap:
+          name: locust-script
 
 ---
 apiVersion: v1
@@ -64,7 +100,7 @@ metadata:
   name: ruby-app-service
   namespace: ruby-prometheus-metrics
   labels:
-    app: ruby-app  # Add this label
+    app: ruby-app
 spec:
   selector:
     app: ruby-app
@@ -72,7 +108,7 @@ spec:
     - name: web
       port: 80
       targetPort: 4567
-    - name: metrics  # Add a named port for metrics
+    - name: metrics
       port: 4567
       targetPort: 4567
   type: ClusterIP
@@ -98,26 +134,6 @@ spec:
         image: redis:6.2-alpine
         ports:
         - containerPort: 6379
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ruby-app-service
-  namespace: ruby-prometheus-metrics
-  labels:
-    app: ruby-app
-spec:
-  type: ClusterIP
-  selector:
-    app: ruby-app
-  ports:
-    - name: web
-      port: 80
-      targetPort: 4567
-    - name: metrics
-      port: 4567
-      targetPort: 4567
 
 ---
 apiVersion: networking.k8s.io/v1
